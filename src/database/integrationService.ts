@@ -1,35 +1,48 @@
-import knex from './db'
-import { IntegrationSettings } from '../shared/types/integration'
+import knex from './db';
+import { IntegrationSettings } from '../shared/types/integration';
 
 export async function getIntegrationSettings(): Promise<IntegrationSettings> {
-  const settings = await knex('integration_settings').first()
-  return (
-    settings || {
-      quickbooks_enabled: false,
-      quickbooks_access_token: '',
-      quickbooks_refresh_token: '',
-      xero_enabled: false,
-      xero_access_token: '',
-      xero_refresh_token: '',
-    }
-  )
+  const result = await knex('integrationSettings').first();
+  return result ? mapIntegrationSettings(result) : getDefaultIntegrationSettings();
 }
 
 export async function updateIntegrationSettings(settings: IntegrationSettings): Promise<void> {
-  const existingSettings = await knex('integration_settings').first()
+  const existingSettings = await knex('integrationSettings').first();
   if (existingSettings) {
-    await knex('integration_settings').update(settings)
+    await knex('integrationSettings').update(settings);
   } else {
-    await knex('integration_settings').insert(settings)
+    await knex('integrationSettings').insert(settings);
   }
 }
 
 export async function syncWithQuickbooks(): Promise<void> {
   // Implement Quickbooks sync logic here
-  console.log('Syncing with Quickbooks...')
+  console.log('Syncing with Quickbooks...');
 }
 
 export async function syncWithXero(): Promise<void> {
   // Implement Xero sync logic here
-  console.log('Syncing with Xero...')
+  console.log('Syncing with Xero...');
+}
+
+function mapIntegrationSettings(result: any): IntegrationSettings {
+  return {
+    quickbooksEnabled: result.quickbooksEnabled,
+    quickbooksAccessToken: result.quickbooksAccessToken,
+    quickbooksRefreshToken: result.quickbooksRefreshToken,
+    xeroEnabled: result.xeroEnabled,
+    xeroAccessToken: result.xeroAccessToken,
+    xeroRefreshToken: result.xeroRefreshToken,
+  };
+}
+
+function getDefaultIntegrationSettings(): IntegrationSettings {
+  return {
+    quickbooksEnabled: false,
+    quickbooksAccessToken: '',
+    quickbooksRefreshToken: '',
+    xeroEnabled: false,
+    xeroAccessToken: '',
+    xeroRefreshToken: '',
+  };
 }

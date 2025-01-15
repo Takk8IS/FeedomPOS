@@ -1,32 +1,47 @@
-import knex from './db'
-import { Discount } from '../shared/types/product'
+import knex from './db';
+import { Discount } from '../shared/types/product';
 
 export async function createDiscount(discount: Omit<Discount, 'id'>): Promise<number> {
-  const result = await knex('discounts').insert(discount)
-  if (!result[0]) {
-    throw new Error('Failed to create discount')
+  const [id] = await knex('discounts').insert(discount);
+  if (!id) {
+    throw new Error('Failed to create discount');
   }
-  return result[0]
+  return id;
 }
 
 export async function getActiveDiscounts(): Promise<Discount[]> {
-  const now = new Date()
-  return knex('discounts').where('start_date', '<=', now).andWhere('end_date', '>=', now)
+  const now = new Date();
+  const results = await knex('discounts')
+    .where('startDate', '<=', now)
+    .andWhere('endDate', '>=', now);
+  return results.map(mapDiscount);
 }
 
 export async function getDiscountForProduct(productId: number): Promise<Discount | null> {
-  const now = new Date()
-  return knex('discounts')
-    .where('product_id', productId)
-    .andWhere('start_date', '<=', now)
-    .andWhere('end_date', '>=', now)
-    .first()
+  const now = new Date();
+  const result = await knex('discounts')
+    .where('productId', productId)
+    .andWhere('startDate', '<=', now)
+    .andWhere('endDate', '>=', now)
+    .first();
+  return result ? mapDiscount(result) : null;
 }
 
 export async function updateDiscount(discount: Discount): Promise<void> {
-  await knex('discounts').where('id', discount.id).update(discount)
+  const { id, ...updateData } = discount;
+  await knex('discounts').where('id', id).update(updateData);
 }
 
 export async function deleteDiscount(id: number): Promise<void> {
-  await knex('discounts').where('id', id).delete()
+  await knex('discounts').where('id', id).delete();
+}
+
+function mapDiscount(result: any): Discount {
+  return {
+    id: result.id,
+    productId: result.productId,
+    percentage: result.percentage,
+    startDate: result.startDate,
+    endDate: result.endDate,
+  };
 }

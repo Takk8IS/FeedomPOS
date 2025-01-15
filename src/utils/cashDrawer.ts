@@ -1,37 +1,38 @@
-import { SerialPort, SerialPortOpenOptions } from 'serialport'
-import { getSettings } from '../database/settingsService'
+import { SerialPort, SerialPortOpenOptions } from 'serialport';
+import { getSettings } from '../database/settingsService';
+import { app } from 'electron';
 
 interface CashDrawerOptions {
-  baudRate: number
-  dataBits: 8
-  stopBits: 1
-  parity: 'none'
-  rtscts: boolean
-  xon: boolean
-  xoff: boolean
-  xany: boolean
+  baudRate: number;
+  dataBits: 8;
+  stopBits: 1;
+  parity: 'none';
+  rtscts: boolean;
+  xon: boolean;
+  xoff: boolean;
+  xany: boolean;
 }
 
-// Comando padrão para abrir a gaveta
-const OPEN_DRAWER_COMMAND = Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa])
+// Standard command to open the drawer
+const OPEN_DRAWER_COMMAND = Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]);
 
-let cashDrawer: SerialPort | null = null
+let cashDrawer: SerialPort | null = null;
 
 /**
- * Configura a gaveta de dinheiro
- * @throws Error se a configuração falhar
+ * Sets up the cash drawer
+ * @throws Error if the setup fails
  */
 export async function setupCashDrawer(): Promise<void> {
   try {
-    const settings = await getSettings()
+    const settings = await getSettings();
 
     if (!settings.useCashDrawer) {
-      console.log('Cash drawer is disabled in settings')
-      return
+      console.log('Cash drawer is disabled in settings');
+      return;
     }
 
     if (!settings.cashDrawerPort) {
-      throw new Error('Cash drawer port is not configured')
+      throw new Error('Cash drawer port is not configured');
     }
 
     const options: SerialPortOpenOptions<CashDrawerOptions> = {
@@ -44,121 +45,107 @@ export async function setupCashDrawer(): Promise<void> {
       xon: false,
       xoff: false,
       xany: false,
-    }
+    };
 
-    cashDrawer = new SerialPort(options)
+    cashDrawer = new SerialPort(options);
 
     cashDrawer.on('error', (error: Error) => {
-      console.error('Cash drawer error:', error)
-      cashDrawer = null
-    })
+      console.error('Cash drawer error:', error);
+      cashDrawer = null;
+    });
 
     cashDrawer.on('open', () => {
-      console.log('Cash drawer connected successfully')
-    })
+      console.log('Cash drawer connected successfully');
+    });
   } catch (error) {
-    console.error('Failed to setup cash drawer:', error)
+    console.error('Failed to setup cash drawer:', error);
     throw new Error(
-      `Failed to setup cash drawer: ${error instanceof Error ? error.message : 'Unknown error'}`
-    )
+      `Failed to setup cash drawer: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
 }
 
 /**
- * Abre a gaveta de dinheiro
- * @returns Promise que resolve quando a gaveta for aberta ou rejeita se houver erro
- * @throws Error se a gaveta não estiver configurada ou se houver erro ao abrir
+ * Opens the cash drawer
+ * @returns Promise that resolves when the drawer is opened or rejects if there's an error
+ * @throws Error if the drawer is not set up or if there's an error opening it
  */
 export function openCashDrawer(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!cashDrawer) {
-      const error = new Error('Cash drawer is not set up')
-      console.error(error)
-      reject(error)
-      return
+      reject(new Error('Cash drawer is not set up'));
+      return;
     }
 
     if (!cashDrawer.isOpen) {
-      const error = new Error('Cash drawer port is not open')
-      console.error(error)
-      reject(error)
-      return
+      reject(new Error('Cash drawer port is not open'));
+      return;
     }
 
     cashDrawer.write(OPEN_DRAWER_COMMAND, (writeError) => {
       if (writeError) {
-        const error = new Error(`Failed to open cash drawer: ${writeError.message}`)
-        console.error(error)
-        reject(error)
-        return
+        reject(new Error(`Failed to open cash drawer: ${writeError.message}`));
+        return;
       }
 
       cashDrawer.drain((drainError) => {
         if (drainError) {
-          const error = new Error(`Failed to flush cash drawer buffer: ${drainError.message}`)
-          console.error(error)
-          reject(error)
-          return
+          reject(new Error(`Failed to flush cash drawer buffer: ${drainError.message}`));
+          return;
         }
 
-        console.log('Cash drawer opened successfully')
-        resolve()
-      })
-    })
-  })
+        console.log('Cash drawer opened successfully');
+        resolve();
+      });
+    });
+  });
 }
 
 /**
- * Fecha a conexão com a gaveta de dinheiro
- * @returns Promise que resolve quando a conexão for fechada
+ * Closes the connection to the cash drawer
+ * @returns Promise that resolves when the connection is closed
  */
 export function closeCashDrawerConnection(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!cashDrawer) {
-      resolve()
-      return
+      resolve();
+      return;
     }
 
     cashDrawer.close((error) => {
       if (error) {
-        console.error('Error closing cash drawer connection:', error)
-        reject(error)
-        return
+        console.error('Error closing cash drawer connection:', error);
+        reject(error);
+        return;
       }
 
-      cashDrawer = null
-      console.log('Cash drawer connection closed')
-      resolve()
-    })
-  })
+      cashDrawer = null;
+      console.log('Cash drawer connection closed');
+      resolve();
+    });
+  });
 }
 
 /**
- * Verifica se a gaveta de dinheiro está configurada e pronta
- * @returns true se a gaveta estiver pronta para uso
+ * Checks if the cash drawer is set up and ready
+ * @returns true if the drawer is ready for use
  */
 export function isCashDrawerReady(): boolean {
-  return cashDrawer !== null && cashDrawer.isOpen
+  return cashDrawer !== null && cashDrawer.isOpen;
 }
 
 /**
- * Reinicia a conexão com a gaveta de dinheiro
- * @returns Promise que resolve quando a gaveta for reiniciada
+ * Resets the connection to the cash drawer
+ * @returns Promise that resolves when the drawer is reset
  */
 export async function resetCashDrawer(): Promise<void> {
-  await closeCashDrawerConnection()
-  await setupCashDrawer()
+  await closeCashDrawerConnection();
+  await setupCashDrawer();
 }
 
-// Garantir que a conexão seja fechada quando o aplicativo for encerrado
-process.on('exit', () => {
+// Ensure the connection is closed when the app is about to quit
+app.on('before-quit', () => {
   if (cashDrawer && cashDrawer.isOpen) {
-    cashDrawer.close()
+    cashDrawer.close();
   }
-})
-
-process.on('SIGINT', () => {
-  closeCashDrawerConnection()
-    .then(() => process.exit(0))
-    .catch(() => process.exit(1))
-})
+});

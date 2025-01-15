@@ -1,116 +1,186 @@
-import React, { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Button } from './ui/button'
-import { Select } from './ui/select'
-import { Input } from './ui/input'
-import { toast } from './ui/toast'
+import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from './ui/button';
+import { Select } from './ui/select';
+import { Input } from './ui/input';
+import { toast } from './ui/toast';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
+import { Label } from './ui/label';
 
-const { ipcRenderer } = window.require('electron')
+const { ipcRenderer } = window.require('electron');
+
+type ReportType = 'daily' | 'weekly' | 'monthly' | 'annual';
+
+interface ReportData {
+  totalSales: number;
+  totalTax: number;
+  netSales: number;
+  totalTransactions: number;
+  topSellingProducts?: Array<{ name: string; quantity: number; revenue: number }>;
+  leastSellingProducts?: Array<{ name: string; quantity: number; revenue: number }>;
+}
 
 const ReportSystem: React.FC = () => {
-  const { t } = useTranslation()
-  const [reportType, setReportType] = useState('daily')
-  const [date, setDate] = useState('')
-  const [month, setMonth] = useState('')
-  const [year, setYear] = useState('')
-  const [report, setReport] = useState<any>(null)
+  const { t } = useTranslation();
+  const [reportType, setReportType] = useState<ReportType>('daily');
+  const [date, setDate] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const generateReport = async () => {
+  const generateReport = useCallback(async () => {
+    if (!validateInputs()) {
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      let result
+      let result;
       switch (reportType) {
         case 'daily':
-          result = await ipcRenderer.invoke('generate-daily-report', date)
-          break
         case 'weekly':
-          result = await ipcRenderer.invoke('generate-weekly-report', date)
-          break
+          result = await ipcRenderer.invoke(`generate-${reportType}-report`, date);
+          break;
         case 'monthly':
-          result = await ipcRenderer.invoke('generate-monthly-report', parseInt(year), parseInt(month))
-          break
+          result = await ipcRenderer.invoke(
+            'generate-monthly-report',
+            parseInt(year),
+            parseInt(month),
+          );
+          break;
         case 'annual':
-          result = await ipcRenderer.invoke('generate-annual-report', parseInt(year))
-          break
-        default:
-          throw new Error('Invalid report type')
+          result = await ipcRenderer.invoke('generate-annual-report', parseInt(year));
+          break;
       }
 
       if (result.success) {
-        setReport(result.report)
-        toast.success(t('reports.generated'))
+        setReport(result.report);
+        toast.success(t('reports.generated'));
       } else {
-        toast.error(result.message)
+        toast.error(result.message);
       }
     } catch (error) {
-      console.error('Error generating report:', error)
-      toast.error(t('errors.generateReport'))
+      console.error('Error generating report:', error);
+      toast.error(t('errors.generateReport'));
+    } finally {
+      setIsLoading(false);
     }
-  }
+  }, [reportType, date, month, year, t]);
+
+  const validateInputs = (): boolean => {
+    if ((reportType === 'daily' || reportType === 'weekly') && !date) {
+      toast.error(t('reports.errors.noDate'));
+      return false;
+    }
+    if ((reportType === 'monthly' || reportType === 'annual') && !year) {
+      toast.error(t('reports.errors.noYear'));
+      return false;
+    }
+    if (reportType === 'monthly' && !month) {
+      toast.error(t('reports.errors.noMonth'));
+      return false;
+    }
+    return true;
+  };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">{t('reports.title')}</h1>
-
-      <div className="space-y-4">
-        <Select
-          value={reportType}
-          onValueChange={(value) => setReportType(value)}
-        >
-          <Select.Option value="daily">{t('reports.daily')}</Select.Option>
-          <Select.Option value="weekly">{t('reports.weekly')}</Select.Option>
-          <Select.Option value="monthly">{t('reports.monthly')}</Select.Option>
-          <Select.Option value="annual">{t('reports.annual')}</Select.Option>
-        </Select>
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>{t('reports.title')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="reportType">{t('reports.selectType')}</Label>
+          <Select
+            id="reportType"
+            value={reportType}
+            onValueChange={(value: ReportType) => setReportType(value)}
+          >
+            <Select.Option value="daily">{t('reports.daily')}</Select.Option>
+            <Select.Option value="weekly">{t('reports.weekly')}</Select.Option>
+            <Select.Option value="monthly">{t('reports.monthly')}</Select.Option>
+            <Select.Option value="annual">{t('reports.annual')}</Select.Option>
+          </Select>
+        </div>
 
         {(reportType === 'daily' || reportType === 'weekly') && (
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="date">{t('reports.date')}</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(value) => setDate(value)}
+              aria-label={t('reports.date')}
+            />
+          </div>
         )}
 
         {(reportType === 'monthly' || reportType === 'annual') && (
-          <Input
-            type="number"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            placeholder={t('reports.year')}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="year">{t('reports.year')}</Label>
+            <Input
+              id="year"
+              type="number"
+              value={year}
+              onChange={(value) => setYear(value)}
+              placeholder={t('reports.yearPlaceholder')}
+              min="2000"
+              max="2099"
+              aria-label={t('reports.year')}
+            />
+          </div>
         )}
 
         {reportType === 'monthly' && (
-          <Input
-            type="number"
-            min="1"
-            max="12"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            placeholder={t('reports.month')}
-          />
+          <div className="space-y-2">
+            <Label htmlFor="month">{t('reports.month')}</Label>
+            <Input
+              id="month"
+              type="number"
+              min="1"
+              max="12"
+              value={month}
+              onChange={(value) => setMonth(value)}
+              placeholder={t('reports.monthPlaceholder')}
+              aria-label={t('reports.month')}
+            />
+          </div>
         )}
-
-        <Button onClick={generateReport}>
-          {t('reports.generate')}
+      </CardContent>
+      <CardFooter>
+        <Button onClick={generateReport} disabled={isLoading}>
+          {isLoading ? t('common.loading') : t('reports.generate')}
         </Button>
-      </div>
+      </CardFooter>
 
       {report && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">{t('reports.results')}</h2>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <p><strong>{t('reports.totalSales')}:</strong> ${report.totalSales.toFixed(2)}</p>
-            <p><strong>{t('reports.totalTax')}:</strong> ${report.totalTax.toFixed(2)}</p>
-            <p><strong>{t('reports.netSales')}:</strong> ${report.netSales.toFixed(2)}</p>
-            <p><strong>{report.netSales.toFixed(2)}</strong></p>
-            <p><strong>{t('reports.totalTransactions')}:</strong> {report.totalTransactions}</p>
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>{t('reports.results')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p>
+              <strong>{t('reports.totalSales')}:</strong> ${report.totalSales.toFixed(2)}
+            </p>
+            <p>
+              <strong>{t('reports.totalTax')}:</strong> ${report.totalTax.toFixed(2)}
+            </p>
+            <p>
+              <strong>{t('reports.netSales')}:</strong> ${report.netSales.toFixed(2)}
+            </p>
+            <p>
+              <strong>{t('reports.totalTransactions')}:</strong> {report.totalTransactions}
+            </p>
             {report.topSellingProducts && (
               <div>
                 <h3 className="text-xl font-bold mt-4 mb-2">{t('reports.topSellingProducts')}</h3>
-                <ul>
-                  {report.topSellingProducts.map((product: any, index: number) => (
+                <ul className="list-disc pl-5">
+                  {report.topSellingProducts.map((product, index) => (
                     <li key={index}>
-                      {product.name}: {product.quantity} units, ${product.revenue.toFixed(2)}
+                      {product.name}: {product.quantity} {t('reports.units')}, $
+                      {product.revenue.toFixed(2)}
                     </li>
                   ))}
                 </ul>
@@ -119,20 +189,21 @@ const ReportSystem: React.FC = () => {
             {report.leastSellingProducts && (
               <div>
                 <h3 className="text-xl font-bold mt-4 mb-2">{t('reports.leastSellingProducts')}</h3>
-                <ul>
-                  {report.leastSellingProducts.map((product: any, index: number) => (
+                <ul className="list-disc pl-5">
+                  {report.leastSellingProducts.map((product, index) => (
                     <li key={index}>
-                      {product.name}: {product.quantity} units, ${product.revenue.toFixed(2)}
+                      {product.name}: {product.quantity} {t('reports.units')}, $
+                      {product.revenue.toFixed(2)}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
-    </div>
-  )
-}
+    </Card>
+  );
+};
 
-export default ReportSystem
+export default ReportSystem;

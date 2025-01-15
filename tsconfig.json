@@ -1,15 +1,15 @@
 {
-"compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "lib": [
-    "DOM",
-    "DOM.Iterable",
-    "ES2020",
-    "ScriptHost"
-    ],
-    "allowJs": true,
+  "compilerOptions": {
+    // Language and Environment
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"],
     "jsx": "react-jsx",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Type Checking
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -27,28 +27,43 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
+
+    // Additional Checks
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
+    "noErrorTruncation": true,
+
+    // Modules
+    "allowJs": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Emit
     "noEmit": true,
     "sourceMap": true,
+    "removeComments": true,
+    "skipLibCheck": true,
+
+    // Project References
+    "composite": true,
+    "incremental": true,
+
+    // Paths
     "baseUrl": "src",
     "paths": {
-    "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@components/*": ["./renderer/components/*"],
+      "@utils/*": ["./utils/*"],
+      "@database/*": ["./database/*"],
+      "@shared/*": ["./shared/*"]
     },
-    "types": ["node", "electron"]
-},
-"include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.js",
-    "src/**/*.jsx"
-],
-"exclude": ["node_modules"]
+
+    // Type Declarations
+    "types": ["node", "electron", "react", "react-dom", "jest"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx", "src/**/*.json"],
+  "exclude": ["node_modules", "build", "dist", "release", "**/*.spec.ts", "**/*.test.ts"]
 }

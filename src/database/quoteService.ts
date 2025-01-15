@@ -1,109 +1,118 @@
-import knex from './db'
-import { Quote } from '../shared/types/quote'
+import knex from './db';
+import { Quote, QuoteItem } from '../shared/types/quote';
 
 export async function createQuote(quote: Omit<Quote, 'id' | 'createdAt'>): Promise<number> {
   const [id] = await knex.transaction(async (trx) => {
     const [quoteId] = await trx('quotes').insert({
-      customer_id: quote.customerId,
+      customerId: quote.customerId,
       subtotal: quote.subtotal,
       tax: quote.tax,
       total: quote.total,
-      expiration_date: quote.expirationDate,
+      expirationDate: quote.expirationDate,
       notes: quote.notes,
-      created_at: new Date(),
-    })
+      createdAt: new Date(),
+    });
 
-    await trx('quote_items').insert(
+    await trx('quoteItems').insert(
       quote.items.map((item) => ({
-        quote_id: quoteId,
-        product_id: item.productId,
+        quoteId: quoteId,
+        productId: item.productId,
         quantity: item.quantity,
-        unit_price: item.unitPrice,
+        unitPrice: item.unitPrice,
         discount: item.discount,
-      }))
-    )
+      })),
+    );
 
-    return [quoteId]
-  })
+    return [quoteId];
+  });
 
   if (!id) {
-    throw new Error('Failed to create quote')
+    throw new Error('Failed to create quote');
   }
 
-  return id
+  return id;
 }
 
 export async function getQuoteById(id: number): Promise<Quote | null> {
-  const quote = await knex('quotes').where('id', id).first()
-  if (!quote) return null
+  const quote = await knex('quotes').where('id', id).first();
+  if (!quote) return null;
 
-  const items = await knex('quote_items')
-    .where('quote_id', id)
-    .join('products', 'quote_items.product_id', 'products.id')
-    .select('quote_items.*', 'products.name')
+  const items = await knex('quoteItems')
+    .where('quoteId', id)
+    .join('products', 'quoteItems.productId', 'products.id')
+    .select('quoteItems.*', 'products.name');
 
   return {
-    ...quote,
-    items: items.map((item) => ({
-      productId: item.product_id,
-      name: item.name,
-      quantity: item.quantity,
-      unitPrice: item.unit_price,
-      discount: item.discount,
-    })),
-  }
+    ...mapQuote(quote),
+    items: items.map(mapQuoteItem),
+  };
 }
 
 export async function updateQuote(quote: Quote): Promise<void> {
   await knex.transaction(async (trx) => {
     await trx('quotes').where('id', quote.id).update({
-      customer_id: quote.customerId,
+      customerId: quote.customerId,
       subtotal: quote.subtotal,
       tax: quote.tax,
       total: quote.total,
-      expiration_date: quote.expirationDate,
+      expirationDate: quote.expirationDate,
       notes: quote.notes,
-    })
+    });
 
-    await trx('quote_items').where('quote_id', quote.id).delete()
-    await trx('quote_items').insert(
+    await trx('quoteItems').where('quoteId', quote.id).delete();
+    await trx('quoteItems').insert(
       quote.items.map((item) => ({
-        quote_id: quote.id,
-        product_id: item.productId,
+        quoteId: quote.id,
+        productId: item.productId,
         quantity: item.quantity,
-        unit_price: item.unitPrice,
+        unitPrice: item.unitPrice,
         discount: item.discount,
-      }))
-    )
-  })
+      })),
+    );
+  });
 }
 
 export async function deleteQuote(id: number): Promise<void> {
   await knex.transaction(async (trx) => {
-    await trx('quote_items').where('quote_id', id).delete()
-    await trx('quotes').where('id', id).delete()
-  })
+    await trx('quoteItems').where('quoteId', id).delete();
+    await trx('quotes').where('id', id).delete();
+  });
 }
 
 export async function getQuotesByCustomer(customerId: number): Promise<Quote[]> {
-  const quotes = await knex('quotes').where('customer_id', customerId)
-  const quoteIds = quotes.map((q) => q.id)
+  const quotes = await knex('quotes').where('customerId', customerId);
+  const quoteIds = quotes.map((q) => q.id);
 
-  const items = await knex('quote_items')
-    .whereIn('quote_id', quoteIds)
-    .join('products', 'quote_items.product_id', 'products.id')
-    .select('quote_items.*', 'products.name')
+  const items = await knex('quoteItems')
+    .whereIn('quoteId', quoteIds)
+    .join('products', 'quoteItems.productId', 'products.id')
+    .select('quoteItems.*', 'products.name');
 
   return quotes.map((quote) => ({
-    ...quote,
-    items: items
-      .filter((item) => item.quote_id === quote.id)
-      .map((item) => ({
-        productId: item.product_id,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        discount: item.discount,
-      })),
-  }))
+    ...mapQuote(quote),
+    items: items.filter((item) => item.quoteId === quote.id).map(mapQuoteItem),
+  }));
+}
+
+function mapQuote(result: any): Omit<Quote, 'items'> {
+  return {
+    id: result.id,
+    customerId: result.customerId,
+    subtotal: result.subtotal,
+    tax: result.tax,
+    total: result.total,
+    expirationDate: result.expirationDate,
+    notes: result.notes,
+    createdAt: result.createdAt,
+  };
+}
+
+function mapQuoteItem(result: any): QuoteItem {
+  return {
+    productId: result.productId,
+    name: result.name,
+    quantity: result.quantity,
+    unitPrice: result.unitPrice,
+    discount: result.discount,
+  };
 }

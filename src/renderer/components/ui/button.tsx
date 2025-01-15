@@ -1,16 +1,25 @@
-import React from 'react'
+import React from 'react';
 
-interface ButtonProps {
-  onClick: () => void
-  children: React.ReactNode
-  disabled?: boolean
-  variant?: 'primary' | 'secondary'
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary';
 }
 
-export const Button = ({ onClick, children, disabled, variant = 'primary' }: ButtonProps) => {
+export const Button: React.FC<ButtonProps> = ({
+  onClick,
+  children,
+  disabled,
+  variant = 'primary',
+  className = '',
+  ...props
+}) => {
   return (
-    <button onClick={onClick} disabled={disabled} className={`btn btn-${variant}`}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`btn btn-${variant} ${className}`}
+      {...props}
+    >
       {children}
     </button>
-  )
-}
+  );
+};

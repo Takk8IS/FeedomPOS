@@ -1,17 +1,26 @@
-import React from 'react'
+import React from 'react';
 
 interface ToastProps {
-  message: string
-  type: 'success' | 'error' | 'info'
+  message: string;
+  type: 'success' | 'error' | 'info';
 }
 
-export const Toast = ({ message, type }: ToastProps) => {
-  return <div className={`toast toast-${type}`}>{message}</div>
+export const Toast: React.FC<ToastProps> = ({ message, type }) => {
+  return <div className={`toast toast-${type}`}>{message}</div>;
+};
+
+interface ToastFunction {
+  (message: string): JSX.Element;
 }
 
-// Add this line to create a toast function
-export const toast = {
-  success: (message: string) => Toast({ message, type: 'success' }),
-  error: (message: string) => Toast({ message, type: 'error' }),
-  info: (message: string) => Toast({ message, type: 'info' }),
+interface ToastInterface {
+  success: ToastFunction;
+  error: ToastFunction;
+  info: ToastFunction;
 }
+
+export const toast: ToastInterface = {
+  success: (message: string) => <Toast message={message} type="success" />,
+  error: (message: string) => <Toast message={message} type="error" />,
+  info: (message: string) => <Toast message={message} type="info" />,
+};

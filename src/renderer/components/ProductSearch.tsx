@@ -1,58 +1,85 @@
-import React, { useState } from 'react'
-import { Product } from '../../shared/types/product'
+import React, { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { ScrollArea } from './ui/scroll-area';
+import { Product } from '../../shared/types/product';
+import debounce from 'lodash/debounce';
 
 interface ProductSearchProps {
-  products: Product[]
-  onProductSelect: (product: Product) => void
+  products: Product[];
+  onProductSelect: (product: Product) => void;
 }
 
 const ProductSearch: React.FC<ProductSearchProps> = ({ products, onProductSelect }) => {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [searchResults, setSearchResults] = useState<Product[]>([])
+  const { t } = useTranslation();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
 
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const term = event.target.value
-    setSearchTerm(term)
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        if (term.trim() === '') {
+          setSearchResults([]);
+        } else {
+          const results = products.filter(
+            (product) =>
+              product.name.toLowerCase().includes(term.toLowerCase()) ||
+              product.barcode?.includes(term),
+          );
+          setSearchResults(results);
+        }
+      }, 300),
+    [products],
+  );
 
-    if (term.trim() === '') {
-      setSearchResults([])
-    } else {
-      const results = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(term.toLowerCase()) || product.barcode?.includes(term)
-      )
-      setSearchResults(results)
-    }
-  }
+  const handleSearch = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const term = event.target.value;
+      setSearchTerm(term);
+      debouncedSearch(term);
+    },
+    [debouncedSearch],
+  );
+
+  const handleProductSelect = useCallback(
+    (product: Product) => {
+      onProductSelect(product);
+      setSearchTerm('');
+      setSearchResults([]);
+    },
+    [onProductSelect],
+  );
 
   return (
-    <div className="mb-4">
-      <input
+    <div className="space-y-2">
+      <Input
         type="text"
-        placeholder="Buscar produtos por nome ou código de barras"
+        placeholder={t('productSearch.placeholder')}
         value={searchTerm}
         onChange={handleSearch}
-        className="w-full px-3 py-2 border rounded-md"
+        aria-label={t('productSearch.ariaLabel')}
       />
       {searchResults.length > 0 && (
-        <ul className="mt-2 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-          {searchResults.map((product) => (
-            <li
-              key={product.id}
-              onClick={() => {
-                onProductSelect(product)
-                setSearchTerm('')
-                setSearchResults([])
-              }}
-              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-            >
-              {product.name} - ${product.price.toFixed(2)}
-            </li>
-          ))}
-        </ul>
+        <ScrollArea className="h-60 border rounded-md">
+          <ul className="p-0 m-0">
+            {searchResults.map((product) => (
+              <li key={product.id} className="list-none">
+                <Button
+                  variant="ghost"
+                  className="w-full text-left px-3 py-2 hover:bg-accent"
+                  onClick={() => handleProductSelect(product)}
+                >
+                  <span className="font-medium">{product.name}</span>
+                  <span className="ml-2 text-muted-foreground">${product.price.toFixed(2)}</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default ProductSearch
+export default ProductSearch;

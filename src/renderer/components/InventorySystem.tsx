@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Product } from '../../shared/types/product'
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Product } from '../../shared/types/product';
 import {
   getProducts,
   createProduct,
   updateProduct,
   deleteProduct,
   importProductsFromXLS,
-} from '../../database/productService'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { toast } from './ui/toast'
-import { generateBarcode, printBarcode } from '../../utils/barcodeGenerator'
+} from '../../database/productService';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { toast } from './ui/toast';
+import { generateBarcode, printBarcode } from '../../utils/barcodeGenerator';
+import { Select, Option } from './ui/select';
 
 const InventorySystem: React.FC = () => {
-  const { t } = useTranslation()
-  const [products, setProducts] = useState<Product[]>([])
+  const { t } = useTranslation();
+  const [products, setProducts] = useState<Product[]>([]);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: '',
     price: 0,
@@ -24,34 +25,30 @@ const InventorySystem: React.FC = () => {
     lowStockThreshold: 10,
     category: '',
     taxExempt: false,
-  })
+  });
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    fetchProducts();
+  }, []);
 
   const fetchProducts = async () => {
     try {
-      const fetchedProducts = await getProducts()
-      setProducts(fetchedProducts)
+      const fetchedProducts = await getProducts();
+      setProducts(fetchedProducts);
     } catch (error) {
-      console.error('Error fetching products:', error)
-      toast.error(t('errors.fetchProducts'))
+      console.error('Error fetching products:', error);
+      toast.error(t('errors.fetchProducts'));
     }
-  }
+  };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target
-    setNewProduct({
-      ...newProduct,
-      [name]: type === 'checkbox' ? checked : value,
-    })
-  }
+  const handleInputChange = (name: string, value: string | number | boolean) => {
+    setNewProduct((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      await createProduct(newProduct as Product)
+      await createProduct(newProduct as Product);
       setNewProduct({
         name: '',
         price: 0,
@@ -60,73 +57,76 @@ const InventorySystem: React.FC = () => {
         lowStockThreshold: 10,
         category: '',
         taxExempt: false,
-      })
-      fetchProducts()
-      toast.success(t('inventory.productCreated'))
+      });
+      fetchProducts();
+      toast.success(t('inventory.productCreated'));
     } catch (error) {
-      console.error('Error creating product:', error)
-      toast.error(t('errors.createProduct'))
+      console.error('Error creating product:', error);
+      toast.error(t('errors.createProduct'));
     }
-  }
+  };
 
   const handleUpdateProduct = async (product: Product) => {
     try {
-      await updateProduct(product)
-      fetchProducts()
-      toast.success(t('inventory.productUpdated'))
+      await updateProduct(product);
+      fetchProducts();
+      toast.success(t('inventory.productUpdated'));
     } catch (error) {
-      console.error('Error updating product:', error)
-      toast.error(t('errors.updateProduct'))
+      console.error('Error updating product:', error);
+      toast.error(t('errors.updateProduct'));
     }
-  }
+  };
 
   const handleDeleteProduct = async (productId: number) => {
     try {
-      await deleteProduct(productId)
-      fetchProducts()
-      toast.success(t('inventory.productDeleted'))
+      await deleteProduct(productId);
+      fetchProducts();
+      toast.success(t('inventory.productDeleted'));
     } catch (error) {
-      console.error('Error deleting product:', error)
-      toast.error(t('errors.deleteProduct'))
+      console.error('Error deleting product:', error);
+      toast.error(t('errors.deleteProduct'));
     }
-  }
+  };
 
   const handleGenerateBarcode = async (productId: number) => {
     try {
-      const barcode = await generateBarcode()
-      await handleUpdateProduct({ ...products.find((p) => p.id === productId)!, barcode })
-      toast.success(t('inventory.barcodeGenerated'))
+      const barcode = await generateBarcode();
+      const product = products.find((p) => p.id === productId);
+      if (product) {
+        await handleUpdateProduct({ ...product, barcode });
+        toast.success(t('inventory.barcodeGenerated'));
+      }
     } catch (error) {
-      console.error('Error generating barcode:', error)
-      toast.error(t('errors.generateBarcode'))
+      console.error('Error generating barcode:', error);
+      toast.error(t('errors.generateBarcode'));
     }
-  }
+  };
 
   const handlePrintBarcode = async (productId: number) => {
     try {
-      const product = products.find((p) => p.id === productId)
+      const product = products.find((p) => p.id === productId);
       if (product && product.barcode) {
-        await printBarcode(product.barcode)
-        toast.success(t('inventory.barcodePrinted'))
+        await printBarcode(product.barcode);
+        toast.success(t('inventory.barcodePrinted'));
       } else {
-        toast.error(t('errors.noBarcodeFound'))
+        toast.error(t('errors.noBarcodeFound'));
       }
     } catch (error) {
-      console.error('Error printing barcode:', error)
-      toast.error(t('errors.printBarcode'))
+      console.error('Error printing barcode:', error);
+      toast.error(t('errors.printBarcode'));
     }
-  }
+  };
 
   const handleImportProducts = async (file: File) => {
     try {
-      await importProductsFromXLS(file)
-      fetchProducts()
-      toast.success(t('inventory.productsImported'))
+      await importProductsFromXLS(file);
+      fetchProducts();
+      toast.success(t('inventory.productsImported'));
     } catch (error) {
-      console.error('Error importing products:', error)
-      toast.error(t('errors.importProducts'))
+      console.error('Error importing products:', error);
+      toast.error(t('errors.importProducts'));
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -135,50 +135,44 @@ const InventorySystem: React.FC = () => {
       <form onSubmit={handleCreateProduct} className="space-y-4">
         <Input
           type="text"
-          name="name"
           value={newProduct.name}
-          onChange={handleInputChange}
+          onChange={(value) => handleInputChange('name', value)}
           placeholder={t('inventory.productName')}
           required
         />
         <Input
           type="number"
-          name="price"
-          value={newProduct.price}
-          onChange={handleInputChange}
+          value={newProduct.price?.toString()}
+          onChange={(value) => handleInputChange('price', parseFloat(value))}
           placeholder={t('inventory.price')}
           required
         />
         <Input
           type="number"
-          name="stock"
-          value={newProduct.stock}
-          onChange={handleInputChange}
+          value={newProduct.stock?.toString()}
+          onChange={(value) => handleInputChange('stock', parseInt(value))}
           placeholder={t('inventory.stock')}
           required
         />
         <Input
           type="text"
-          name="category"
           value={newProduct.category}
-          onChange={handleInputChange}
+          onChange={(value) => handleInputChange('category', value)}
           placeholder={t('inventory.category')}
           required
         />
         <Input
           type="number"
-          name="lowStockThreshold"
-          value={newProduct.lowStockThreshold}
-          onChange={handleInputChange}
+          value={newProduct.lowStockThreshold?.toString()}
+          onChange={(value) => handleInputChange('lowStockThreshold', parseInt(value))}
           placeholder={t('inventory.lowStockThreshold')}
           required
         />
         <div className="flex items-center">
           <input
             type="checkbox"
-            name="taxExempt"
             checked={newProduct.taxExempt}
-            onChange={handleInputChange}
+            onChange={(e) => handleInputChange('taxExempt', e.target.checked)}
             className="mr-2"
           />
           <label htmlFor="taxExempt">{t('inventory.taxExempt')}</label>
@@ -237,16 +231,16 @@ const InventorySystem: React.FC = () => {
         <Input
           type="file"
           accept=".xls,.xlsx"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
+          onChange={(value) => {
+            const file = (value as unknown as FileList)[0];
             if (file) {
-              handleImportProducts(file)
+              handleImportProducts(file);
             }
           }}
         />
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default InventorySystem
+export default InventorySystem;

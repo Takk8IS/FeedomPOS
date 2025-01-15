@@ -1,0 +1,5 @@
+{
+  "NODE_ENV": "production",
+  "DATABASE_URL": "sqlite://./data/pos_database_prod.sqlite",
+  "API_SECRET_KEY": "prod_secret_key"
+}

@@ -1,19 +1,32 @@
-import React from 'react'
+import React from 'react';
 
-interface SelectProps {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
+interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> {
+  value: string;
+  onChange: (value: string) => void;
 }
 
-export const Select: React.FC<SelectProps> & {
-  Option: React.FC<React.OptionHTMLAttributes<HTMLOptionElement>>
-} = ({ value, onChange, children }) => {
+export const Select: React.FC<SelectProps> = ({
+  value,
+  onChange,
+  children,
+  className = '',
+  ...props
+}) => {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="select">
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`select ${className}`}
+      {...props}
+    >
       {children}
     </select>
-  )
-}
+  );
+};
 
-Select.Option = ({ children, ...props }) => <option {...props}>{children}</option>
+export const Option: React.FC<React.OptionHTMLAttributes<HTMLOptionElement>> = ({
+  children,
+  ...props
+}) => <option {...props}>{children}</option>;
+
+Select.Option = Option;

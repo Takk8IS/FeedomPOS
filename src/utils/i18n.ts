@@ -1,25 +1,26 @@
-import i18n from 'i18next'
-import { InitOptions } from 'i18next'
-import { initReactI18next } from 'react-i18next'
-import Backend from 'i18next-http-backend'
-import LanguageDetector from 'i18next-browser-languagedetector'
+import i18n from 'i18next';
+import { InitOptions } from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import Backend from 'i18next-http-backend';
+import LanguageDetector from 'i18next-browser-languagedetector';
 
-interface TranslationKeys {
-  welcome: string
-  sales: string
-  inventory: string
-  reports: string
-  settings: string
-  customers: string
-  products: string
-  logout: string
+export interface TranslationKeys {
+  welcome: string;
+  sales: string;
+  inventory: string;
+  reports: string;
+  settings: string;
+  customers: string;
+  products: string;
+  logout: string;
+  // Add more translation keys as needed
 }
 
 type Resources = {
   [key: string]: {
-    translation: TranslationKeys
-  }
-}
+    translation: TranslationKeys;
+  };
+};
 
 const resources: Resources = {
   en: {
@@ -58,7 +59,7 @@ const resources: Resources = {
       logout: 'Sair',
     },
   },
-}
+};
 
 const i18nConfig: InitOptions = {
   resources,
@@ -88,78 +89,92 @@ const i18nConfig: InitOptions = {
     loadPath: '/locales/{{lng}}/{{ns}}.json',
     addPath: '/locales/{{lng}}/{{ns}}.missing.json',
   },
-}
+};
 
 /**
- * Inicializa o sistema de internacionalização
- * @returns Promise que resolve quando a inicialização estiver completa
+ * Initializes the internationalization system
+ * @returns Promise that resolves when the initialization is complete
  */
 export async function setupI18n(): Promise<typeof i18n> {
   try {
-    await i18n.use(Backend).use(LanguageDetector).use(initReactI18next).init(i18nConfig)
+    await i18n.use(Backend).use(LanguageDetector).use(initReactI18next).init(i18nConfig);
 
-    return i18n
+    return i18n;
   } catch (error) {
-    console.error('Failed to initialize i18n:', error)
-    throw new Error('Failed to initialize internationalization')
+    console.error('Failed to initialize i18n:', error);
+    throw new Error('Failed to initialize internationalization');
   }
 }
 
 /**
- * Muda o idioma atual
- * @param language Código do idioma (ex: 'en', 'es', 'pt')
- * @returns Promise que resolve quando a mudança estiver completa
+ * Changes the current language
+ * @param language Language code (e.g., 'en', 'es', 'pt')
+ * @returns Promise that resolves when the change is complete
  */
 export async function changeLanguage(language: string): Promise<void> {
+  if (!isLanguageAvailable(language)) {
+    throw new Error(`Language ${language} is not available`);
+  }
+
   try {
-    await i18n.changeLanguage(language)
+    await i18n.changeLanguage(language);
   } catch (error) {
-    console.error(`Failed to change language to ${language}:`, error)
-    throw new Error(`Failed to change language to ${language}`)
+    console.error(`Failed to change language to ${language}:`, error);
+    throw new Error(`Failed to change language to ${language}`);
   }
 }
 
 /**
- * Obtém o idioma atual
- * @returns Código do idioma atual
+ * Gets the current language
+ * @returns Current language code
  */
 export function getCurrentLanguage(): string {
-  return i18n.language
+  return i18n.language;
 }
 
 /**
- * Verifica se um idioma está disponível
- * @param language Código do idioma
- * @returns true se o idioma estiver disponível
+ * Checks if a language is available
+ * @param language Language code
+ * @returns true if the language is available
  */
 export function isLanguageAvailable(language: string): boolean {
-  return Object.keys(resources).includes(language)
+  return Object.keys(resources).includes(language);
 }
 
 /**
- * Obtém todos os idiomas disponíveis
- * @returns Array com os códigos dos idiomas disponíveis
+ * Gets all available languages
+ * @returns Array of available language codes
  */
 export function getAvailableLanguages(): string[] {
-  return Object.keys(resources)
+  return Object.keys(resources);
 }
 
 /**
- * Adiciona uma nova tradução
- * @param language Código do idioma
- * @param namespace Namespace da tradução
- * @param translations Objeto com as traduções
+ * Adds new translations
+ * @param language Language code
+ * @param namespace Translation namespace
+ * @param translations Object with translations
  */
 export function addTranslations(
   language: string,
   namespace: string,
-  translations: Record<string, string>
+  translations: Partial<TranslationKeys>,
 ): void {
-  i18n.addResourceBundle(language, namespace, translations, true, true)
+  i18n.addResourceBundle(language, namespace, translations, true, true);
 }
 
-// Exporta a instância i18n para uso em componentes React
-export default i18n
+/**
+ * Gets a translation for a given key
+ * @param key Translation key
+ * @param options Translation options
+ * @returns Translated string
+ */
+export function translate(key: keyof TranslationKeys, options?: object): string {
+  return i18n.t(key, options);
+}
 
-// Tipos de exportação para uso em outros arquivos
-export type { TranslationKeys }
+// Export the i18n instance for use in React components
+export default i18n;
+
+// Type exports for use in other files
+export type { TranslationKeys };

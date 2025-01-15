@@ -1,58 +1,59 @@
-import knex from './db'
-import { Product } from '../shared/types/product'
-import * as XLSX from 'xlsx'
-import { Transaction } from 'knex'
+import knex from './db';
+import { Product } from '../shared/types/product';
+import * as XLSX from 'xlsx';
+import { Transaction } from 'knex';
 
-// Define o tipo Dict genérico
-type Dict<T> = { [key: string | number]: T }
+type Dict<T> = { [key: string | number]: T };
 
-/**
- * Importa produtos de um arquivo XLS
- * @param filePath Caminho do arquivo XLS
- */
 export async function importProductsFromXLS(filePath: string): Promise<void> {
-  const workbook = XLSX.readFile(filePath)
-  const sheetName = workbook.SheetNames[0]
-  const sheet = workbook.Sheets[sheetName]
-  const products: Product[] = XLSX.utils.sheet_to_json(sheet)
+  const workbook = XLSX.readFile(filePath);
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const products: Product[] = XLSX.utils.sheet_to_json(sheet);
 
   await knex.transaction(async (trx) => {
     for (const product of products) {
-      await trx('products').insert(product)
+      await trx('products').insert(product);
     }
-  })
+  });
 }
 
-/**
- * Obtém produtos com estoque baixo
- * @param threshold Limite opcional de estoque
- */
 export async function getLowStockProducts(threshold?: number): Promise<Product[]> {
-  const query = knex('products').where('stock', '<=', knex.raw('low_stock_threshold'))
+  const query = knex('products').where('stock', '<=', knex.raw('lowStockThreshold'));
 
   if (threshold !== undefined) {
-    query.orWhere('stock', '<=', threshold)
+    query.orWhere('stock', '<=', threshold);
   }
 
-  return await query
+  const results = await query;
+  return results.map(mapProduct);
 }
 
-/**
- * Atualiza o estoque de um produto
- * @param productId ID do produto
- * @param quantity Quantidade a ser incrementada/decrementada
- * @param trx Transação opcional
- */
 export async function updateProductStock(
   productId: number,
   quantity: number,
-  trx?: Transaction
+  trx?: Transaction,
 ): Promise<void> {
-  const query = knex('products').where('id', productId).increment('stock', quantity)
+  const query = knex('products').where('id', productId).increment('stock', quantity);
 
   if (trx) {
-    await query.transacting(trx)
+    await query.transacting(trx);
   } else {
-    await query
+    await query;
   }
+}
+
+function mapProduct(result: any): Product {
+  return {
+    id: result.id,
+    name: result.name,
+    barcode: result.barcode,
+    price: result.price,
+    stock: result.stock,
+    lowStockThreshold: result.lowStockThreshold,
+    category: result.category,
+    taxExempt: result.taxExempt,
+    createdAt: result.createdAt,
+    updatedAt: result.updatedAt,
+  };
 }

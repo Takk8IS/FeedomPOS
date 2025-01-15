@@ -1,46 +1,45 @@
-import { QuickBooks, Xero, SyncResult } from '../integrations/types'
-import { IntegrationSettings } from '../shared/types/settings'
-import { getIntegrationSettings } from '../database/integrationService'
+import { QuickBooks, Xero, SyncResult, TokenInfo } from '../integrations/types';
+import { IntegrationSettings } from '../shared/types/settings';
+import { getIntegrationSettings, updateIntegrationSettings } from '../database/integrationService';
 
 interface IntegrationInstance {
-  quickbooks: QuickBooks | null
-  xero: Xero | null
+  quickbooks: QuickBooks | null;
+  xero: Xero | null;
 }
 
-interface SyncOptions {
-  forceSync?: boolean
-  syncItems?: string[]
-  dryRun?: boolean
+export interface SyncOptions {
+  forceSync?: boolean;
+  syncItems?: string[];
+  dryRun?: boolean;
 }
 
 const integrations: IntegrationInstance = {
   quickbooks: null,
   xero: null,
-}
+};
 
 /**
- * Configura as integrações com base nas configurações
- * @throws Error se a configuração falhar
+ * Sets up integrations based on settings
+ * @throws Error if setup fails
  */
 export async function setupIntegrations(): Promise<void> {
   try {
-    const settings = await getIntegrationSettings()
-    await setupQuickBooks(settings)
-    await setupXero(settings)
+    const settings = await getIntegrationSettings();
+    await Promise.all([setupQuickBooks(settings), setupXero(settings)]);
   } catch (error) {
-    console.error('Failed to setup integrations:', error)
-    throw new Error('Failed to setup integrations')
+    console.error('Failed to setup integrations:', error);
+    throw new Error('Failed to setup integrations');
   }
 }
 
 /**
- * Configura a integração com QuickBooks
- * @param settings Configurações de integração
+ * Sets up QuickBooks integration
+ * @param settings Integration settings
  */
 async function setupQuickBooks(settings: IntegrationSettings): Promise<void> {
   if (!settings.quickbooksEnabled) {
-    integrations.quickbooks = null
-    return
+    integrations.quickbooks = null;
+    return;
   }
 
   try {
@@ -51,23 +50,23 @@ async function setupQuickBooks(settings: IntegrationSettings): Promise<void> {
       clientSecret: settings.quickbooksClientSecret,
       environment: settings.quickbooksEnvironment,
       realmId: settings.quickbooksRealmId,
-    })
+    });
 
-    await integrations.quickbooks.initialize()
+    await integrations.quickbooks.initialize();
   } catch (error) {
-    console.error('Failed to setup QuickBooks:', error)
-    throw new Error('Failed to setup QuickBooks integration')
+    console.error('Failed to setup QuickBooks:', error);
+    throw new Error('Failed to setup QuickBooks integration');
   }
 }
 
 /**
- * Configura a integração com Xero
- * @param settings Configurações de integração
+ * Sets up Xero integration
+ * @param settings Integration settings
  */
 async function setupXero(settings: IntegrationSettings): Promise<void> {
   if (!settings.xeroEnabled) {
-    integrations.xero = null
-    return
+    integrations.xero = null;
+    return;
   }
 
   try {
@@ -77,126 +76,174 @@ async function setupXero(settings: IntegrationSettings): Promise<void> {
       clientId: settings.xeroClientId,
       clientSecret: settings.xeroClientSecret,
       tenantId: settings.xeroTenantId,
-    })
+    });
 
-    await integrations.xero.initialize()
+    await integrations.xero.initialize();
   } catch (error) {
-    console.error('Failed to setup Xero:', error)
-    throw new Error('Failed to setup Xero integration')
+    console.error('Failed to setup Xero:', error);
+    throw new Error('Failed to setup Xero integration');
   }
 }
 
 /**
- * Sincroniza dados com QuickBooks
- * @param options Opções de sincronização
- * @returns Resultado da sincronização
- * @throws Error se a sincronização falhar
+ * Syncs data with QuickBooks
+ * @param options Sync options
+ * @returns Sync result
+ * @throws Error if sync fails
  */
 export async function syncWithQuickBooks(options: SyncOptions = {}): Promise<SyncResult> {
   if (!integrations.quickbooks) {
-    throw new Error('QuickBooks integration is not enabled')
+    throw new Error('QuickBooks integration is not enabled');
   }
 
   try {
     if (await shouldRefreshToken(integrations.quickbooks)) {
-      await integrations.quickbooks.refreshAccessToken()
+      const newTokens = await integrations.quickbooks.refreshAccessToken();
+      await updateIntegrationTokens('quickbooks', newTokens);
     }
 
     const result = await integrations.quickbooks.sync({
       force: options.forceSync,
       items: options.syncItems,
       dryRun: options.dryRun,
-    })
+    });
 
-    return result
+    return result;
   } catch (error) {
-    console.error('Failed to sync with QuickBooks:', error)
-    throw new Error('Failed to sync with QuickBooks')
+    console.error('Failed to sync with QuickBooks:', error);
+    throw new Error('Failed to sync with QuickBooks');
   }
 }
 
 /**
- * Sincroniza dados com Xero
- * @param options Opções de sincronização
- * @returns Resultado da sincronização
- * @throws Error se a sincronização falhar
+ * Syncs data with Xero
+ * @param options Sync options
+ * @returns Sync result
+ * @throws Error if sync fails
  */
 export async function syncWithXero(options: SyncOptions = {}): Promise<SyncResult> {
   if (!integrations.xero) {
-    throw new Error('Xero integration is not enabled')
+    throw new Error('Xero integration is not enabled');
   }
 
   try {
     if (await shouldRefreshToken(integrations.xero)) {
-      await integrations.xero.refreshAccessToken()
+      const newTokens = await integrations.xero.refreshAccessToken();
+      await updateIntegrationTokens('xero', newTokens);
     }
 
     const result = await integrations.xero.sync({
       force: options.forceSync,
       items: options.syncItems,
       dryRun: options.dryRun,
-    })
+    });
 
-    return result
+    return result;
   } catch (error) {
-    console.error('Failed to sync with Xero:', error)
-    throw new Error('Failed to sync with Xero')
+    console.error('Failed to sync with Xero:', error);
+    throw new Error('Failed to sync with Xero');
   }
 }
 
 /**
- * Verifica se um token de acesso precisa ser atualizado
- * @param integration Instância da integração
- * @returns true se o token precisar ser atualizado
+ * Checks if an access token needs to be refreshed
+ * @param integration Integration instance
+ * @returns true if the token needs to be refreshed
  */
 async function shouldRefreshToken(integration: QuickBooks | Xero): Promise<boolean> {
   try {
-    const tokenInfo = await integration.getTokenInfo()
-    const expiresAt = new Date(tokenInfo.expiresAt)
-    const now = new Date()
+    const tokenInfo = await integration.getTokenInfo();
+    const expiresAt = new Date(tokenInfo.expiresAt);
+    const now = new Date();
 
-    // Atualiza se faltar menos de 5 minutos para expirar
-    return expiresAt.getTime() - now.getTime() < 5 * 60 * 1000
+    // Refresh if less than 5 minutes until expiration
+    return expiresAt.getTime() - now.getTime() < 5 * 60 * 1000;
   } catch (error) {
-    console.error('Failed to check token expiration:', error)
-    return true
+    console.error('Failed to check token expiration:', error);
+    return true;
   }
 }
 
 /**
- * Desconecta todas as integrações
+ * Updates integration tokens in the database
+ * @param integrationType Type of integration ('quickbooks' or 'xero')
+ * @param tokens New token information
+ */
+async function updateIntegrationTokens(
+  integrationType: 'quickbooks' | 'xero',
+  tokens: TokenInfo,
+): Promise<void> {
+  try {
+    const settings = await getIntegrationSettings();
+    if (integrationType === 'quickbooks') {
+      settings.quickbooksAccessToken = tokens.accessToken;
+      settings.quickbooksRefreshToken = tokens.refreshToken;
+    } else {
+      settings.xeroAccessToken = tokens.accessToken;
+      settings.xeroRefreshToken = tokens.refreshToken;
+    }
+    await updateIntegrationSettings(settings);
+  } catch (error) {
+    console.error(`Failed to update ${integrationType} tokens:`, error);
+    throw new Error(`Failed to update ${integrationType} tokens`);
+  }
+}
+
+/**
+ * Disconnects all integrations
  */
 export async function disconnectIntegrations(): Promise<void> {
   try {
-    if (integrations.quickbooks) {
-      await integrations.quickbooks.disconnect()
-      integrations.quickbooks = null
-    }
-
-    if (integrations.xero) {
-      await integrations.xero.disconnect()
-      integrations.xero = null
-    }
+    await Promise.all([disconnectIntegration('quickbooks'), disconnectIntegration('xero')]);
   } catch (error) {
-    console.error('Failed to disconnect integrations:', error)
-    throw new Error('Failed to disconnect integrations')
+    console.error('Failed to disconnect integrations:', error);
+    throw new Error('Failed to disconnect integrations');
   }
 }
 
 /**
- * Verifica o status das integrações
- * @returns Status de cada integração
+ * Disconnects a specific integration
+ * @param integrationType Type of integration to disconnect
+ */
+async function disconnectIntegration(integrationType: 'quickbooks' | 'xero'): Promise<void> {
+  const integration = integrations[integrationType];
+  if (integration) {
+    try {
+      await integration.disconnect();
+      integrations[integrationType] = null;
+
+      const settings = await getIntegrationSettings();
+      if (integrationType === 'quickbooks') {
+        settings.quickbooksEnabled = false;
+        settings.quickbooksAccessToken = '';
+        settings.quickbooksRefreshToken = '';
+      } else {
+        settings.xeroEnabled = false;
+        settings.xeroAccessToken = '';
+        settings.xeroRefreshToken = '';
+      }
+      await updateIntegrationSettings(settings);
+    } catch (error) {
+      console.error(`Failed to disconnect ${integrationType}:`, error);
+      throw new Error(`Failed to disconnect ${integrationType}`);
+    }
+  }
+}
+
+/**
+ * Checks the status of integrations
+ * @returns Status of each integration
  */
 export function getIntegrationStatus(): Record<string, boolean> {
   return {
     quickbooks: integrations.quickbooks !== null,
     xero: integrations.xero !== null,
-  }
+  };
 }
 
-// Desconecta integrações quando o aplicativo é fechado
+// Disconnect integrations when the app is closed
 process.on('exit', () => {
-  disconnectIntegrations().catch(console.error)
-})
+  disconnectIntegrations().catch(console.error);
+});
 
-export type { SyncOptions, SyncResult }
+export type { SyncOptions, SyncResult, TokenInfo };

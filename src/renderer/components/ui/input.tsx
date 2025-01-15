@@ -1,20 +1,26 @@
-import React from 'react'
+import React from 'react';
 
-interface InputProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: string
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  value: string;
+  onChange: (value: string) => void;
 }
 
-export const Input = ({ value, onChange, placeholder, type = 'text' }: InputProps) => {
+export const Input: React.FC<InputProps> = ({
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  className = '',
+  ...props
+}) => {
   return (
     <input
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="input"
+      className={`input ${className}`}
+      {...props}
     />
-  )
-}
+  );
+};
